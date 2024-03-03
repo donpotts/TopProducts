@@ -1,0 +1,88 @@
+{
+  "name": "Topproducts",
+  "displayName": "Top Products 2024",
+  "features": [
+    "BlazorWasm"
+  ],
+  "entities": {
+    "Product": {
+      "primaryKey": "Id",
+      "noGeneratedIdentity": false,
+      "properties": {
+        "Id": {
+          "type": "long"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "decimal",
+          "format": "C"
+        },
+        "Rating": {
+          "type": "decimal"
+        },
+        "VendorId": {
+          "displayName": "Vendor Id",
+          "type": "long"
+        },
+        "Photo": {
+          "type": "Image"
+        }
+      },
+      "navigation": {
+        "Vendor": {
+          "target": "Vendor",
+          "displayProperty": "Company"
+        }
+      }
+    },
+    "Vendor": {
+      "primaryKey": "Id",
+      "noGeneratedIdentity": false,
+      "properties": {
+        "Id": {
+          "type": "long"
+        },
+        "Type": {
+          "type": "string"
+        },
+        "Company": {
+          "type": "string"
+        },
+        "ContactName": {
+          "displayName": "Contact Name",
+          "type": "string"
+        },
+        "PhoneNumber": {
+          "displayName": "Phone Number",
+          "type": "string"
+        },
+        "Email": {
+          "type": "string"
+        },
+        "StreetAddress": {
+          "displayName": "Street Address",
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "State": {
+          "type": "string"
+        },
+        "Zip": {
+          "type": "string"
+        },
+        "Country": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "usingMudBlazor": true,
+  "usingMudBlazorTopOption": true
+}

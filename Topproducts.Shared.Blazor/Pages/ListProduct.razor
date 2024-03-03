@@ -1,0 +1,145 @@
+@page "/product"
+@inject AppService AppService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject HttpClient HttpClient
+@attribute [Authorize]
+
+<PageTitle>Product</PageTitle>
+
+<div class="mb-3">
+    <MudText Typo="Typo.h3">Product</MudText>
+</div>
+
+<MudStack AlignItems="AlignItems.End" Class="mb-3">
+    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Primary" OnClick="@(e => OnAdd())">Add</MudButton>
+</MudStack>
+
+<MudDataGrid T="Product" @ref="grid" ServerData="(new Func<GridState<Product>, Task<GridData<Product>>>(ServerReload))" Filterable="true">
+    <Columns>
+        <PropertyColumn Property="x => x!.Id" Title="Id" />
+        <PropertyColumn Property="x => x!.Name" Title="Name" />
+        <PropertyColumn Property="x => x!.Description" Title="Description" />
+        <PropertyColumn Property="x => x!.Price" Title="Price" Format="C" />
+        <PropertyColumn Property="x => x!.Rating" Title="Rating" />
+        <TemplateColumn Title="Photo" Sortable="false" Filterable="false">
+            <CellTemplate>
+                @if (!string.IsNullOrEmpty(context.Item!.Photo))
+                {
+                    <MudImage Src="@GetAbsoluteUri(context.Item!.Photo)" Style="width:128px;height:128px;object-fit:contain;" />
+                }
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn @ref="vendorColumn" Property="x => x!.Vendor != null ? x.Vendor.Company : null" Title="Vendor" />
+        <TemplateColumn StickyRight="true" Sortable="false" Filterable="false">
+            <CellTemplate>
+                <MudStack Row="true">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="@Size.Small" Title="Edit" OnClick="@(e => OnEdit(context.Item!))" />
+                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="@Size.Small" Title="Delete" OnClick="@(e => OnDelete(context.Item!))" />
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="Product" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private MudDataGrid<Product>? grid;
+    private PropertyColumn<Product, string?>? vendorColumn;
+
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    private async Task<GridData<Product>> ServerReload(GridState<Product> state)
+    {
+        var top = state.PageSize;
+        var skip = state.Page * state.PageSize;
+        var orderby = ODataHelpers.GetOrderBy(state.SortDefinitions);
+        var filter = ODataHelpers.GetFilter(state.FilterDefinitions);
+
+        if (!string.IsNullOrEmpty(vendorColumn?.PropertyName))
+        {
+            orderby = orderby?.Replace(vendorColumn.PropertyName, "Vendor/Company");
+            filter = filter?.Replace(vendorColumn.PropertyName, "Vendor/Company");
+        }
+
+        AppService.ODataResult<Product>? result = null;
+
+        try
+        {
+            result = await AppService.ListProductODataAsync(top, skip, orderby, filter, true, "Vendor");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+
+        return new() { TotalItems = result?.Count ?? 0, Items = result?.Value ?? Enumerable.Empty<Product>() };
+    }
+
+    private async void OnAdd()
+    {
+        DialogOptions dialogOptions = new() { FullWidth = true, CloseOnEscapeKey = true };
+
+        var result = await DialogService.Show<AddProduct>("Add Product", dialogOptions).Result;
+
+        if (!result.Canceled)
+        {
+            await (grid?.ReloadServerData() ?? Task.CompletedTask);
+        }
+    }
+
+    private async void OnEdit(Product record)
+    {
+        DialogParameters<UpdateProduct> dialogParams = new() { { x => x.Id, record.Id!.Value } };
+        DialogOptions dialogOptions = new() { FullWidth = true, CloseOnEscapeKey = true };
+
+        var result = await DialogService.Show<UpdateProduct>("Update Product", dialogParams, dialogOptions).Result;
+
+        if (!result.Canceled)
+        {
+            await (grid?.ReloadServerData() ?? Task.CompletedTask);
+        }
+    }
+
+    private async void OnDelete(Product record)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Warning",
+            "Are you sure you want to delete this record?",
+            "Delete",
+            "Cancel");
+
+        if (result.GetValueOrDefault(false))
+        {
+            try
+            {
+                await AppService.DeleteProductAsync(record.Id!.Value);
+                await (grid?.ReloadServerData() ?? Task.CompletedTask);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Error);
+            }
+        }
+    }
+}
